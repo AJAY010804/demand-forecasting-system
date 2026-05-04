@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}DemandForecast{% endblock %} — Retail Forecasting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon"></span>
+      <span class="logo-text">DemandForecast</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('index') }}"     class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+        <span class="nav-icon">⬡</span> Overview
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">◈</span> Dashboard
+      </a>
+      <a href="{{ url_for('predict') }}"   class="nav-item {% if request.endpoint == 'predict' %}active{% endif %}">
+        <span class="nav-icon">◎</span> Predict
+      </a>
+      <a href="{{ url_for('forecast') }}"  class="nav-item {% if request.endpoint == 'forecast' %}active{% endif %}">
+        <span class="nav-icon">📈</span> Forecast
+      </a>
+      <a href="{{ url_for('models') }}"    class="nav-item {% if request.endpoint == 'models' %}active{% endif %}">
+        <span class="nav-icon">◫</span> Models
+      </a>
+      <a href="{{ url_for('upload') }}"    class="nav-item {% if request.endpoint == 'upload' %}active{% endif %}">
+        <span class="nav-icon">⬆</span> Batch Upload
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="status-dot {% if trained is defined and trained %}online{% else %}offline{% endif %}"></div>
+      <span>Model {% if trained is defined and trained %}Ready{% else %}Not Trained{% endif %}</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main-wrapper">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        <span class="topbar-title">{% block topbar_title %}{% endblock %}</span>
+      </div>
+      <div class="topbar-right">
+        {% if trained and model_results and best_model %}
+          <span class="topbar-badge">{{ best_model }} · R² {{ "%.4f"|format(model_results[best_model]['R2']) }}</span>
+        {% endif %}
+        <span class="topbar-badge">421K Records</span>
+      </div>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-container">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">
+              {{ message }}
+              <button onclick="this.parentElement.remove()">✕</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Page content -->
+    <main class="page-content">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

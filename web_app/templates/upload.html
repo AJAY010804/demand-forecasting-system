@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Batch Upload — DemandForecast{% endblock %}
+{% block topbar_title %}Batch Prediction{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-label">Batch Prediction</div>
+  <h1 class="page-title">Upload CSV for Bulk Forecast</h1>
+  <p class="page-sub">Upload a CSV file to get predictions for all rows at once.</p>
+</div>
+
+{% if preview %}
+<!-- ── RESULTS ── -->
+<div class="not-trained-banner" style="background:var(--green-bg);border-color:#A7F3D0;">
+  <span class="icon">✅</span>
+  <p style="color:#065F46;">
+    <strong>{{ summary.total_rows }} rows</strong> predicted from <strong>{{ filename }}</strong>.
+    Showing first {{ preview | length }} rows below.
+  </p>
+</div>
+
+<!-- Summary KPIs -->
+<div class="stats-grid mb-24">
+  <div class="stat-card">
+    <div class="stat-label">Total Rows</div>
+    <div class="stat-value blue">{{ summary.total_rows }}</div>
+    <div class="stat-sub">Predictions generated</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Avg Predicted Sales</div>
+    <div class="stat-value green">${{ "{:,.0f}".format(summary.avg_pred) }}</div>
+    <div class="stat-sub">Per row</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Max Predicted Sales</div>
+    <div class="stat-value amber">${{ "{:,.0f}".format(summary.max_pred) }}</div>
+    <div class="stat-sub">Highest single row</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Predicted Revenue</div>
+    <div class="stat-value">${{ "{:,.0f}".format(summary.total_pred) }}</div>
+    <div class="stat-sub">Sum of all predictions</div>
+  </div>
+</div>
+
+<!-- Download + New Upload buttons -->
+<div style="display:flex;gap:12px;margin-bottom:20px;">
+  <a href="{{ url_for('download_results') }}" class="btn btn-primary btn-lg">
+    ⬇ &nbsp;Download Full Results CSV
+  </a>
+  <a href="{{ url_for('upload') }}" class="btn btn-secondary btn-lg">
+    ⬆ &nbsp;Upload Another File
+  </a>
+</div>
+
+<!-- Preview Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Preview — First {{ preview | length }} Rows</div>
+    <span class="badge badge-blue">{{ summary.total_rows }} total rows</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          {% for col in preview_cols %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in preview %}
+        <tr>
+          {% for col in preview_cols %}
+          <td class="{% if col in ['Predicted_Sales','Low_Estimate','High_Estimate'] %}mono td-blue{% else %}mono{% endif %}">
+            {% if col in ['Predicted_Sales','Low_Estimate','High_Estimate'] %}
+              ${{ "{:,.0f}".format(row[col]) }}
+            {% else %}
+              {{ row[col] }}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<!-- ── UPLOAD FORM ── -->
+<div class="grid-2">
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Upload File</div></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" id="upload-form">
+
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title" id="drop-title">Drop CSV here or click to browse</div>
+          <div class="upload-sub">Supports .csv files only</div>
+          <input type="file" name="file" id="fileInput" class="upload-input" accept=".csv"
+                 onchange="handleFileSelect(this)">
+        </div>
+
+        <div id="file-info" style="display:none;margin-top:12px;padding:10px 14px;
+             background:var(--accent-bg);border:1px solid #BAE6FD;border-radius:6px;
+             font-size:13px;color:var(--accent);">
+          <strong id="file-name"></strong> selected
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg"
+                style="margin-top:16px;" id="submit-btn" disabled>
+          ⬆ &nbsp;Upload &amp; Predict
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Format guide -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">Required CSV Columns</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Column</th><th>Type</th><th>Example</th></tr></thead>
+        <tbody>
+          {% for col, typ, ex in [
+            ('Store',         'int',   '1'),
+            ('Dept',          'int',   '1'),
+            ('Date',          'str',   '2024-01-05'),
+            ('IsHoliday',     'int',   '0 or 1'),
+            ('Temperature',   'float', '45.0'),
+            ('Fuel_Price',    'float', '3.40'),
+            ('CPI',           'float', '211.0'),
+            ('Unemployment',  'float', '7.0'),
+            ('Size',          'int',   '151315'),
+            ('Type',          'str',   'A / B / C'),
+            ('lag_1_week',    'float', '25000 (optional)'),
+            ('lag_4_week',    'float', '22000 (optional)'),
+            ('lag_52_week',   'float', '24000 (optional)'),
+            ('rolling_mean_4','float', '23500 (optional)'),
+          ] %}
+          <tr>
+            <td class="mono">{{ col }}</td>
+            <td style="color:var(--muted);font-size:12px;">{{ typ }}</td>
+            <td style="color:var(--muted);font-size:12px;">{{ ex }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Output columns info -->
+<div class="card" style="margin-top:20px">
+  <div class="card-header"><div class="card-title">Output Columns Added to Your CSV</div></div>
+  <div class="card-body">
+    <div class="grid-3">
+      {% for col, desc in [
+        ('Predicted_Sales', 'ML model point estimate for weekly sales'),
+        ('Low_Estimate',    'Prediction minus MAE — conservative lower bound'),
+        ('High_Estimate',   'Prediction plus MAE — optimistic upper bound'),
+      ] %}
+      <div style="padding:12px;background:var(--bg);border-radius:6px;border:1px solid var(--border);">
+        <div class="mono" style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px;">{{ col }}</div>
+        <div style="font-size:12px;color:var(--muted);">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not preview %}
+<script>
+const dropZone  = document.getElementById('drop-zone');
+const submitBtn = document.getElementById('submit-btn');
+
+function handleFileSelect(input) {
+  if (input.files && input.files[0]) {
+    const f = input.files[0];
+    document.getElementById('file-name').textContent = f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+    document.getElementById('file-info').style.display = 'block';
+    document.getElementById('drop-title').textContent  = f.name;
+    submitBtn.disabled = false;
+  }
+}
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) {
+    document.getElementById('fileInput').files = e.dataTransfer.files;
+    handleFileSelect(document.getElementById('fileInput'));
+  }
+});
+
+// Show loading state on submit
+document.getElementById('upload-form').addEventListener('submit', () => {
+  submitBtn.disabled = true;
+  submitBtn.textContent = '⏳  Processing...';
+});
+</script>
+{% endif %}
+{% endblock %}

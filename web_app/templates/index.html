@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block topbar_title %}Overview{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-label">Demand Forecasting System</div>
+  <h1 class="page-title">Welcome to DemandForecast</h1>
+  <p class="page-sub">ML-powered weekly sales forecasting for retail stores — trained on 421K Walmart records.</p>
+</div>
+
+{% if not trained %}
+<div class="not-trained-banner">
+  <span class="icon">⚠</span>
+  <p>Model not trained yet. Run <code>python main.py</code> in your terminal to train, then refresh this page.</p>
+</div>
+{% endif %}
+
+<!-- Stats row -->
+<div class="stats-grid mb-24">
+  {% if results and best %}
+  <div class="stat-card">
+    <div class="stat-label">Best Model R²</div>
+    <div class="stat-value blue">{{ "%.2f"|format(results[best]['R2'] * 100) }}%</div>
+    <div class="stat-sub">{{ best }} on test set</div>
+    <div class="stat-indicator up">▲ Top performer</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Mean Abs. Error</div>
+    <div class="stat-value green">${{ "{:,.0f}".format(results[best]['MAE']) }}</div>
+    <div class="stat-sub">Per dept per week</div>
+  </div>
+  {% else %}
+  <div class="stat-card">
+    <div class="stat-label">Best Model R²</div>
+    <div class="stat-value blue">—</div>
+    <div class="stat-sub">Not trained yet</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Mean Abs. Error</div>
+    <div class="stat-value green">—</div>
+    <div class="stat-sub">Not trained yet</div>
+  </div>
+  {% endif %}
+  <div class="stat-card">
+    <div class="stat-label">Training Records</div>
+    <div class="stat-value amber">421,570</div>
+    <div class="stat-sub">3 years · 45 stores · 99 depts</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Features</div>
+    <div class="stat-value" style="color:var(--muted)">28</div>
+    <div class="stat-sub">Lag · Rolling · Time · Store</div>
+  </div>
+</div>
+
+<!-- Two columns -->
+<div class="grid-2 mb-24">
+
+  <!-- Quick actions -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Quick Actions</div>
+        <div class="card-subtitle">Start predicting in seconds</div>
+      </div>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      <a href="{{ url_for('predict') }}" class="btn btn-primary btn-full btn-lg">
+        ◎ &nbsp;Predict Weekly Sales
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-full">
+        ◈ &nbsp;View Dashboard
+      </a>
+      <a href="{{ url_for('upload') }}" class="btn btn-secondary btn-full">
+        ⬆ &nbsp;Batch Predict (CSV Upload)
+      </a>
+      <a href="{{ url_for('models') }}" class="btn btn-secondary btn-full">
+        ◫ &nbsp;Model Comparison
+      </a>
+    </div>
+  </div>
+
+  <!-- Pipeline summary -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">ML Pipeline</div>
+    </div>
+    <div class="card-body">
+      {% set steps = [
+        ("Load Data",         "train.csv + features.csv + stores.csv → merged",   "blue"),
+        ("Clean",             "Nulls, negatives, outliers, type encoding",         "blue"),
+        ("EDA",               "6 visual charts saved to outputs/",                 "blue"),
+        ("Feature Engineering","Lag 1/4/52wk · Rolling mean/std · Time features", "blue"),
+        ("Preprocess",        "MinMaxScale · Temporal train/test split",           "blue"),
+        ("Train 3 Models",    "Linear Regression · Random Forest · XGBoost",      "green"),
+        ("Ensemble",          "Weighted average (proportional to R²)",             "green"),
+        ("Save Artefacts",    "best_model.pkl · scaler.pkl · model_results.json", "green"),
+      ] %}
+      {% for name, desc, subtle in steps %}
+      <div 
+      style="display:flex;align-items:flex-start;gap:12px;padding:8px 0; border-bottom:1px solid #E4E7EC; ">
+        <div style="width:8px;height:8px;border-radius:50%; background:#98A2B3;flex-shrink:0;margin-top:4px;"></div>
+        <div>
+          <div style="font-size:13px;font-weight:500;">{{ name }}</div>
+          <div style="font-size:12px;color:var(--muted);">{{ desc }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Model results table -->
+{% if results %}
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Model Results Summary</div>
+    <a href="{{ url_for('models') }}" class="btn btn-secondary" style="font-size:12px;padding:6px 12px;">Full Report →</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th><th>R² Score</th><th>MAE</th><th>RMSE</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, r in results.items() %}
+        <tr>
+          <td><strong>{{ name }}</strong></td>
+          <td class="mono td-blue">{{ "%.4f"|format(r.R2) }}</td>
+          <td class="mono">${{ "{:,.0f}".format(r.MAE) }}</td>
+          <td class="mono">${{ "{:,.0f}".format(r.RMSE) }}</td>
+          <td>
+            {% if name == best %}
+              <span class="badge badge-green">★ Best</span>
+            {% else %}
+              <span class="badge badge-grey">Trained</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

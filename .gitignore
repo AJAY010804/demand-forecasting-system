@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploaded/generated files at runtime
+web_app/uploads/*
+web_app/results/*
+!web_app/uploads/.gitkeep
+!web_app/results/.gitkeep
+
+# Raw data (large files — not needed on Render)
+data/raw/*.csv
+data/processed/*.csv
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Logs
+*.log
+
+
+# my personal files
+Review PPT
+notebooks
+tests
+data.csv
+Project.txt
+Project1.txt
+sample_data.py
+test.ipynb
+models

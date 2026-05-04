@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Result{% endblock %}
+{% block topbar_title %}Prediction Result{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-label">Prediction Result</div>
+  <h1 class="page-title">Weekly Sales Forecast</h1>
+</div>
+
+<!-- Hero -->
+<div class="result-hero mb-24">
+  <div class="result-label">Predicted Weekly Sales</div>
+  <div class="result-amount">$<span>{{ "{:,.0f}".format(result.prediction) }}</span></div>
+  <div class="result-meta">
+    Store {{ input_data.Store }} &nbsp;·&nbsp; Dept {{ input_data.Dept }} &nbsp;·&nbsp; {{ input_data.Date }}
+    &nbsp;·&nbsp; Model: {{ result.model_used }}
+  </div>
+  <div class="result-range">
+    <div class="range-chip">
+      <div class="rc-label">Low (−MAE)</div>
+      <div class="rc-val">${{ "{:,.0f}".format(result.low_estimate) }}</div>
+    </div>
+    <div class="range-chip" style="border-color:var(--accent);">
+      <div class="rc-label">Prediction</div>
+      <div class="rc-val" style="color:var(--accent);">${{ "{:,.0f}".format(result.prediction) }}</div>
+    </div>
+    <div class="range-chip">
+      <div class="rc-label">High (+MAE)</div>
+      <div class="rc-val">${{ "{:,.0f}".format(result.high_estimate) }}</div>
+    </div>
+  </div>
+
+  <!-- Quick KPIs -->
+  <div class="hero-kpis">
+    <div class="hero-kpi">
+      <div class="hk-label">vs Last Week</div>
+      <div class="hk-val {% if insights.wow_pct >= 0 %}hk-green{% else %}hk-red{% endif %}">
+        {{ "+" if insights.wow_pct >= 0 else "" }}{{ insights.wow_pct }}%
+      </div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hk-label">vs Last Year</div>
+      <div class="hk-val {% if insights.yoy_pct >= 0 %}hk-green{% else %}hk-red{% endif %}">
+        {{ "+" if insights.yoy_pct >= 0 else "" }}{{ insights.yoy_pct }}%
+      </div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hk-label">vs 4-Wk Avg</div>
+      <div class="hk-val {% if insights.vs_rolling_pct >= 0 %}hk-green{% else %}hk-red{% endif %}">
+        {{ "+" if insights.vs_rolling_pct >= 0 else "" }}{{ insights.vs_rolling_pct }}%
+      </div>
+    </div>
+    <div class="hero-kpi">
+      <div class="hk-label">4-Wk Forecast Trend</div>
+      <div class="hk-val {% if insights.forecast_trend_pct >= 0 %}hk-green{% else %}hk-red{% endif %}">
+        {{ "+" if insights.forecast_trend_pct >= 0 else "" }}{{ insights.forecast_trend_pct }}%
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 1: Insights + Staffing -->
+<div class="grid-2 mb-24">
+
+  <!-- Business Insights -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📊 Business Insights</div>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      {% for ins in insights.insights %}
+      <div class="insight-card insight-{{ ins.type }}">
+        <div class="insight-icon">{{ ins.icon }}</div>
+        <div>
+          <div class="insight-title">{{ ins.title }}</div>
+          <div class="insight-detail">{{ ins.detail }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Staffing Recommendation -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">👥 Staffing Recommendation</div>
+      <span class="badge
+        {% if insights.staffing.decision == 'HIRE' %}badge-green
+        {% elif insights.staffing.decision == 'REDUCE' %}badge-red
+        {% elif insights.staffing.decision == 'REVIEW' %}badge-amber
+        {% else %}badge-grey{% endif %}">
+        {{ insights.staffing.badge }}
+      </span>
+    </div>
+    <div class="card-body">
+      <div class="staffing-decision staffing-{{ insights.staffing.level }}">
+        <div class="sd-icon">
+          {% if insights.staffing.decision == 'HIRE' %}🟢
+          {% elif insights.staffing.decision == 'REDUCE' %}🔴
+          {% elif insights.staffing.decision == 'REVIEW' %}🟡
+          {% else %}⚪{% endif %}
+        </div>
+        <div>
+          <div class="sd-title">{{ insights.staffing.decision }}: {{ insights.staffing.badge }}</div>
+          <div class="sd-reason">{{ insights.staffing.reason }}</div>
+        </div>
+      </div>
+      <div class="section-label" style="margin-top:16px;">Action Steps</div>
+      <ul class="staffing-list">
+        {% for detail in insights.staffing.details %}
+        <li>{{ detail }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Row 2: Action Items + 12-week Forecast Chart -->
+<div class="grid-2 mb-24">
+
+  <!-- Action Items -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">⚡ Action Items</div></div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:10px;">
+      {% for act in insights.actions %}
+      <div class="action-row">
+        <span class="priority-badge priority-{{ act.priority | lower }}">{{ act.priority }}</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);">{{ act.action }}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">{{ act.reason }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- 12-Week Forecast Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📈 12-Week Rolling Forecast</div>
+      <a href="{{ url_for('forecast') }}" class="btn btn-secondary" style="font-size:11px;padding:5px 10px;">Full Forecast →</a>
+    </div>
+    <div class="card-body">
+      <div style="position:relative;height:220px;">
+        <canvas id="forecast-chart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Row 3: Forecast table + Input summary -->
+<div class="grid-2 mb-24">
+
+  <!-- Forecast table -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">Weekly Forecast Breakdown</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Week</th><th>Predicted Sales</th><th>Low</th><th>High</th><th>Trend</th></tr>
+        </thead>
+        <tbody>
+          {% for w in forecast %}
+          {% set prev = forecast[loop.index0 - 1].prediction if loop.index0 > 0 else result.prediction %}
+          {% set chg = ((w.prediction - prev) / prev * 100) if prev > 0 else 0 %}
+          <tr>
+            <td class="mono" style="color:var(--muted);">W{{ w.week }}</td>
+            <td class="mono td-blue">${{ "{:,.0f}".format(w.prediction) }}</td>
+            <td class="mono" style="color:var(--muted);font-size:12px;">${{ "{:,.0f}".format(w.low_estimate) }}</td>
+            <td class="mono" style="color:var(--muted);font-size:12px;">${{ "{:,.0f}".format(w.high_estimate) }}</td>
+            <td class="mono {% if chg >= 0 %}td-green{% else %}td-red{% endif %}" style="font-size:12px;">
+              {{ "+" if chg >= 0 else "" }}{{ "%.1f"|format(chg) }}%
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Input summary -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">Input Summary</div></div>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          {% for key, val in input_data.items() %}
+          <tr>
+            <td style="color:var(--muted);font-size:12px;">{{ key }}</td>
+            <td class="mono">{{ val }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:32px;">
+  <a href="{{ url_for('predict') }}"  class="btn btn-primary">New Prediction</a>
+  <a href="{{ url_for('forecast') }}" class="btn btn-secondary">Full Forecast</a>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="fc-data" type="application/json">{{ forecast | tojson }}</script>
+<script>
+const fc     = JSON.parse(document.getElementById('fc-data').textContent);
+const labels = fc.map(w => 'W' + w.week);
+const preds  = fc.map(w => w.prediction);
+const lows   = fc.map(w => w.low_estimate);
+const highs  = fc.map(w => w.high_estimate);
+const GRID   = 'rgba(0,0,0,0.05)';
+
+new Chart(document.getElementById('forecast-chart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Predicted',
+        data: preds,
+        borderColor: '#0EA5E9', backgroundColor: 'rgba(14,165,233,0.08)',
+        borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#0EA5E9',
+        fill: false, tension: 0.3,
+      },
+      {
+        label: 'High',
+        data: highs,
+        borderColor: 'rgba(16,185,129,0.4)', borderDash: [4,3],
+        borderWidth: 1, pointRadius: 0, fill: false,
+      },
+      {
+        label: 'Low',
+        data: lows,
+        borderColor: 'rgba(239,68,68,0.4)', borderDash: [4,3],
+        borderWidth: 1, pointRadius: 0, fill: false,
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: GRID }, border: { color: GRID } },
+      y: { grid: { color: GRID }, border: { color: GRID },
+           ticks: { callback: v => '$' + (v/1000).toFixed(0) + 'k' } }
+    }
+  }
+});
+</script>
+{% endblock %}

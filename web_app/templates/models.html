@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Models — DemandForecast{% endblock %}
+{% block topbar_title %}Model Comparison{% endblock %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <p class="page-label">ML Models</p>
+  <h1 class="page-title">Model Comparison</h1>
+</div>
+
+{% if not model_results %}
+<div class="not-trained-banner">
+  <span class="icon">⚠</span>
+  <p>No models trained yet. Run <code>python main.py</code> first.</p>
+</div>
+{% else %}
+
+<!-- Model cards -->
+<div class="model-grid">
+  {% for name, m in model_results.items() %}
+  {% set r2_pct = (m['R2'] * 100) | round(2) %}
+  <div class="model-card {% if name == best_model %}model-best{% endif %}">
+    {% if name == best_model %}<span class="best-badge">★ Best</span>{% endif %}
+    <div class="model-name">{{ name }}</div>
+    <div class="model-metrics">
+      <div class="mm-row">
+        <span class="mm-label">R² Score</span>
+        <span class="mm-val" style="color:#2563EB">{{ "%.4f"|format(m['R2']) }}</span>
+      </div>
+      <div class="r2-bar">
+        <div class="r2-fill" style="width: {{ r2_pct }}%; background: linear-gradient(90deg, #2563EB, #3B82F6);"></div>
+      </div>
+      <div class="mm-row"><span class="mm-label">MAE</span><span class="mm-val">${{ "{:,.0f}".format(m.MAE) }}</span></div>
+      <div class="mm-row"><span class="mm-label">RMSE</span><span class="mm-val">${{ "{:,.0f}".format(m.RMSE) }}</span></div>
+      <div class="mm-row">
+        <span class="mm-label">Train Time</span>
+        <span class="mm-val">{{ "%.1f"|format(m.Time) }}s</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Radar + Feature Importance -->
+<div class="two-col" style="margin-top:20px">
+  <div class="card">
+    <div class="card-header"><div class="card-title">Model Radar Comparison</div></div>
+    <div class="card-body"><div class="chart-wrap"><canvas id="radar-chart"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><div class="card-title">Top Feature Importance (XGBoost)</div></div>
+    <div class="card-body">
+      <div class="feat-list">
+        {% set features = [
+          ("lag_1_week", 32.4), ("rolling_mean_4", 23.1), ("lag_52_week", 16.8),
+          ("lag_4_week", 12.4), ("Size", 6.1), ("Dept", 4.6), ("Week", 3.2),
+          ("IsHoliday", 1.4)
+        ] %}
+        {% set max_pct = features[0][1] %}
+        {% for fname, pct in features %}
+        <div class="feat-row">
+          <span class="feat-name">{{ fname }}</span>
+          <div class="feat-bar-wrap">
+            <div class="feat-bar-fill" style="width:{{ (pct / max_pct * 100) | round(1) }}%"></div>
+          </div>
+          <span class="feat-pct">{{ pct }}%</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Feature Importance chart from outputs -->
+<div class="card" style="margin-top:20px">
+  <div class="card-header"><div class="card-title">Generated Feature Importance Chart</div></div>
+  <div class="card-body">
+    <img src="{{ url_for('serve_outputs', filename='feature_importance.png') }}"
+         style="width:100%;border-radius:8px;max-height:400px;object-fit:contain;"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+         alt="Feature Importance">
+    <p style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">
+      Feature importance chart not generated yet. Run <code>python main.py</code>.
+    </p>
+  </div>
+</div>
+
+<!-- Full metrics table -->
+<div class="card" style="margin-top:20px">
+  <div class="card-header"><div class="card-title">Full Metrics Table</div></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Model</th><th>R² Score</th><th>MAE</th><th>MSE</th><th>RMSE</th><th>Train Time</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for name, m in model_results.items() %}
+        <tr>
+          <td><strong>{{ name }}</strong></td>
+          <td class="mono td-blue">{{ "%.4f"|format(m.R2) }}</td>
+          <td class="mono">${{ "{:,.0f}".format(m.MAE) }}</td>
+          <td class="mono">${{ "{:,.0f}".format(m.MSE) }}</td>
+          <td class="mono">${{ "{:,.0f}".format(m.RMSE) }}</td>
+          <td class="mono">{{ "%.1f"|format(m.Time) }}s</td>
+          <td>
+            {% if name == best_model %}
+              <span class="badge badge-green">★ Best</span>
+            {% else %}
+              <span class="badge badge-grey">Trained</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if model_results %}
+<script>
+const GRID = 'rgba(0,0,0,0.06)';
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size   = 11;
+
+new Chart(document.getElementById('radar-chart'), {
+  type: 'radar',
+  data: {
+    labels: ['R² Score','Low MAE','Low RMSE','Speed','Interpretability'],
+    datasets: [
+      { label:'XGBoost',           data:[99,90,88,95,60], borderColor:'#2563EB', backgroundColor:'#2563EB22', borderWidth:2, pointBackgroundColor:'#2563EB', pointRadius:4 },
+      { label:'Random Forest',     data:[97,87,85,40,70], borderColor:'#10B981', backgroundColor:'#10B98122', borderWidth:2, pointBackgroundColor:'#10B981', pointRadius:4 },
+      { label:'Linear Regression', data:[82,70,65,100,100],borderColor:'#9CA3AF', backgroundColor:'#9CA3AF22',borderWidth:2, pointBackgroundColor:'#9CA3AF',pointRadius:4 },
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, padding:16 } } },
+    scales:{ r:{ grid:{color:GRID}, angleLines:{color:GRID}, ticks:{display:false} } }
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

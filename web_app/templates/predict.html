@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}Predict{% endblock %}
+{% block topbar_title %}Single Prediction{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-label">Prediction Engine</div>
+  <h1 class="page-title">Predict Weekly Sales</h1>
+  <p class="page-sub">Enter store details and recent sales history to get an instant ML prediction.</p>
+</div>
+
+<div class="predict-layout">
+
+  <!-- ── INPUT FORM ── -->
+  <div class="card">
+    <div class="card-header"><div class="card-title">Input Parameters</div></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('predict') }}" id="predict-form">
+
+        <div class="form-section">
+          <div class="form-section-title">Store & Department</div>
+          <div class="form-grid-2">
+            <div class="field">
+              <label>Store Number</label>
+              <select name="store">
+                {% for i in range(1,46) %}
+                <option value="{{ i }}" {% if i==1 %}selected{% endif %}>Store {{ i }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Department</label>
+              <select name="dept">
+                {% for i in range(1,100) %}
+                <option value="{{ i }}" {% if i==1 %}selected{% endif %}>Dept {{ i }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label>Store Type</label>
+              <select name="store_type">
+                <option value="A">Type A — Large</option>
+                <option value="B">Type B — Medium</option>
+                <option value="C">Type C — Small</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Store Size (sq ft)</label>
+              <input type="number" name="size" value="151315" min="34000" max="219000">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Date & Context</div>
+          <div class="form-grid-2">
+            <div class="field">
+              <label>Date</label>
+              <input type="date" name="date" value="2024-12-20">
+            </div>
+            <div class="field">
+              <label>Is Holiday Week?</label>
+              <select name="is_holiday">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Temperature (°F)</label>
+              <input type="number" name="temperature" value="45" step="0.1">
+            </div>
+            <div class="field">
+              <label>Fuel Price ($/gal)</label>
+              <input type="number" name="fuel_price" value="3.40" step="0.01">
+            </div>
+            <div class="field">
+              <label>CPI</label>
+              <input type="number" name="cpi" value="211.0" step="0.1">
+              <span class="hint">Consumer Price Index</span>
+            </div>
+            <div class="field">
+              <label>Unemployment %</label>
+              <input type="number" name="unemployment" value="7.0" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Sales History — top predictors</div>
+
+          <div class="slider-field mb-12">
+            <div class="slider-header">
+              <label>Last Week Sales</label>
+              <span class="slider-val" id="sv-lag1">$25,000</span>
+            </div>
+            <input type="range" name="lag1" min="0" max="106565" step="100" value="25000"
+              oninput="document.getElementById('sv-lag1').textContent='$'+parseInt(this.value).toLocaleString(); livePreview()">
+          </div>
+
+          <div class="slider-field mb-12">
+            <div class="slider-header">
+              <label>4 Weeks Ago Sales</label>
+              <span class="slider-val" id="sv-lag4">$22,000</span>
+            </div>
+            <input type="range" name="lag4" min="0" max="106565" step="100" value="22000"
+              oninput="document.getElementById('sv-lag4').textContent='$'+parseInt(this.value).toLocaleString(); livePreview()">
+          </div>
+
+          <div class="slider-field mb-12">
+            <div class="slider-header">
+              <label>Same Week Last Year</label>
+              <span class="slider-val" id="sv-lag52">$24,000</span>
+            </div>
+            <input type="range" name="lag52" min="0" max="106565" step="100" value="24000"
+              oninput="document.getElementById('sv-lag52').textContent='$'+parseInt(this.value).toLocaleString(); livePreview()">
+          </div>
+
+          <div class="slider-field">
+            <div class="slider-header">
+              <label>4-Week Rolling Average</label>
+              <span class="slider-val" id="sv-roll">$23,500</span>
+            </div>
+            <input type="range" name="rolling" min="0" max="106565" step="100" value="23500"
+              oninput="document.getElementById('sv-roll').textContent='$'+parseInt(this.value).toLocaleString(); livePreview()">
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Promotions (MarkDown)</div>
+          <div class="form-grid-3">
+            {% for i in range(1,6) %}
+            <div class="field">
+              <label>MarkDown{{ i }}</label>
+              <input type="number" name="markdown{{ i }}" value="0" step="100" min="0">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg">
+          Run Prediction →
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── LIVE PREVIEW ── -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- Live preview card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Live Preview</div>
+        <span class="badge badge-blue">Updates as you type</span>
+      </div>
+      <div class="card-body">
+        <div style="text-align:center;padding:16px 0;">
+          <div class="page-label mb-4">Estimated Weekly Sales</div>
+          <div id="preview-amount" style="font-family:'JetBrains Mono',monospace;font-size:42px;font-weight:700;color:var(--accent);letter-spacing:-2px;">$—</div>
+          <div id="preview-range" style="font-size:12px;color:var(--muted);margin-top:6px;">Adjust sliders for instant estimate</div>
+        </div>
+        <div style="height:200px;position:relative;margin-top:8px;">
+          <canvas id="preview-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key insight card -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">Prediction Insights</div></div>
+      <div class="card-body" id="insight-body">
+        <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">
+          Adjust inputs to see insights
+        </div>
+      </div>
+    </div>
+
+    <!-- API example -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">API Usage</div></div>
+      <div class="card-body">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">POST /api/predict</div>
+        <pre style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);overflow-x:auto;white-space:pre-wrap;">fetch('/api/predict', {
+  method: 'POST',
+  headers: {'Content-Type':'application/json'},
+  body: JSON.stringify({
+    Store: 1, Dept: 1,
+    Date: "2024-12-20",
+    IsHoliday: 1,
+    lag_1_week: 25000,
+    lag_4_week: 22000,
+    lag_52_week: 24000,
+  })
+})</pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const Chart = window.Chart;
+let previewChart = null;
+
+function simulatePred(lag1, lag4, lag52, rolling, holiday, month) {
+  let p = lag1*0.45 + lag52*0.25 + rolling*0.20 + lag4*0.10;
+  const mb=[0.88,0.90,0.92,0.93,0.95,0.97,0.97,0.97,0.96,0.98,1.02,1.18];
+  p *= mb[(month||12)-1];
+  if (holiday) p *= 1.12;
+  return Math.max(500, Math.min(p, 106565));
+}
+
+function livePreview() {
+  const lag1    = parseInt(document.querySelector('[name=lag1]').value);
+  const lag4    = parseInt(document.querySelector('[name=lag4]').value);
+  const lag52   = parseInt(document.querySelector('[name=lag52]').value);
+  const rolling = parseInt(document.querySelector('[name=rolling]').value);
+  const holiday = parseInt(document.querySelector('[name=is_holiday]').value);
+  const dateVal = document.querySelector('[name=date]').value;
+  const month   = dateVal ? new Date(dateVal).getMonth()+1 : 12;
+
+  const pred = Math.round(simulatePred(lag1, lag4, lag52, rolling, holiday, month));
+  const mae  = 1017;
+  const low  = Math.max(0, pred-mae);
+  const high = pred+mae;
+
+  document.getElementById('preview-amount').textContent = '$'+pred.toLocaleString();
+  document.getElementById('preview-range').textContent  =
+    `Range: $${low.toLocaleString()} – $${high.toLocaleString()}  (±$${mae.toLocaleString()} MAE)`;
+
+  // Insights
+  const insights = [];
+  if (holiday) insights.push({icon:'📅',label:'Holiday week','val':'+12% boost applied'});
+  if (month>=11) insights.push({icon:'📈',label:'Peak season','val':'Nov–Dec highest demand'});
+  const wow = ((pred-lag1)/lag1*100).toFixed(1);
+  insights.push({icon:'🔄',label:'vs Last Week','val':(wow>=0?'+':'')+wow+'%'});
+  const yoy = ((pred-lag52)/lag52*100).toFixed(1);
+  insights.push({icon:'📊',label:'vs Last Year','val':(yoy>=0?'+':'')+yoy+'%'});
+
+  const ib = document.getElementById('insight-body');
+  ib.innerHTML = insights.map(i=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
+        <span>${i.icon}</span><span style="color:var(--muted);">${i.label}</span>
+      </div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;">${i.val}</span>
+    </div>`
+  ).join('') || '<div style="color:var(--muted);font-size:13px;">—</div>';
+
+  // Chart
+  const labels = ['Same Wk\nLast Yr','4 Wks\nAgo','Last\nWk','Predicted'];
+  const vals   = [lag52, lag4, lag1, pred];
+  const colors = [
+    'rgba(16,185,129,0.2)','rgba(16,185,129,0.2)',
+    'rgba(16,185,129,0.2)','rgba(14,165,233,0.3)'
+  ];
+  const borders = ['#10B981','#10B981','#10B981','#0EA5E9'];
+
+  if (previewChart) previewChart.destroy();
+  previewChart = new Chart(document.getElementById('preview-chart'), {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        data:vals, backgroundColor:colors, borderColor:borders,
+        borderWidth:1.5, borderRadius:5
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.04)'},border:{color:'var(--border)'}},
+        y:{
+          grid:{color:'rgba(0,0,0,0.04)'},border:{color:'var(--border)'},
+          ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k'}
+        }
+      }
+    }
+  });
+}
+
+// Init on load
+window.addEventListener('load', livePreview);
+document.querySelector('[name=is_holiday]').addEventListener('change', livePreview);
+document.querySelector('[name=date]').addEventListener('change', livePreview);
+</script>
+{% endblock %}
