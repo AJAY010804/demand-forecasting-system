@@ -40,15 +40,15 @@
           </div>
           <div class="field">
             <label>Store Type</label>
-            <select name="store_type">
-              <option value="A">Type A — Large</option>
-              <option value="B">Type B — Medium</option>
-              <option value="C">Type C — Small</option>
+            <select name="store_type" id="store_type" onchange="updateSize(this.value)">
+              <option value="A">Type A — Large </option>
+              <option value="B">Type B — Medium </option>
+              <option value="C">Type C — Small </option>
             </select>
           </div>
           <div class="field">
-            <label>Store Size (sq ft)</label>
-            <input type="number" name="size" value="151315" min="34000" max="219000">
+            <label>Store Size (sq ft) <span style="color:var(--muted);font-weight:400;font-size:11px;"></span></label>
+            <input type="number" name="size" id="store_size" value="200000" min="34000" max="219000">
           </div>
           <div class="field">
             <label>Start Date</label>
@@ -278,10 +278,16 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+const TYPE_SIZES = { A: 200000, B: 140000, C: 90000 };
+function updateSize(type) {
+  const el = document.getElementById('store_size');
+  if (el) el.value = TYPE_SIZES[type] || 200000;
+}
+</script>
 {% if forecast %}
 <script id="fc-data" type="application/json">{{ forecast | tojson }}</script>
-<script>
-const fc     = JSON.parse(document.getElementById('fc-data').textContent);
+<script>const fc     = JSON.parse(document.getElementById('fc-data').textContent);
 const labels = fc.map(w => 'Week ' + w.week);
 const preds  = fc.map(w => w.prediction);
 const lows   = fc.map(w => w.low_estimate);

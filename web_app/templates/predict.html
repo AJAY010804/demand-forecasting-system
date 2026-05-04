@@ -42,15 +42,15 @@
             </div>
             <div class="field">
               <label>Store Type</label>
-              <select name="store_type">
+              <select name="store_type" id="store_type" onchange="updateSize(this.value)">
                 <option value="A">Type A — Large</option>
                 <option value="B">Type B — Medium</option>
                 <option value="C">Type C — Small</option>
               </select>
             </div>
             <div class="field">
-              <label>Store Size (sq ft)</label>
-              <input type="number" name="size" value="151315" min="34000" max="219000">
+              <label>Store Size (sq ft) <span style="color:var(--muted);font-weight:400;font-size:11px;"></span></label>
+              <input type="number" name="size" id="store_size" value="200000" min="34000" max="219000">
             </div>
           </div>
         </div>
@@ -207,6 +207,12 @@
 <script>
 const Chart = window.Chart;
 let previewChart = null;
+
+const TYPE_SIZES = { A: 200000, B: 140000, C: 90000 };
+function updateSize(type) {
+  document.getElementById('store_size').value = TYPE_SIZES[type] || 200000;
+  livePreview();
+}
 
 function simulatePred(lag1, lag4, lag52, rolling, holiday, month) {
   let p = lag1*0.45 + lag52*0.25 + rolling*0.20 + lag4*0.10;
