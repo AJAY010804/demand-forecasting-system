@@ -33,7 +33,7 @@ web_app/results/*
 !web_app/results/.gitkeep
 
 # Raw data (large files — not needed on Render)
-data/raw/*.csv
+# data/raw/*.csv
 data/processed/*.csv
 
 # Jupyter checkpoints
