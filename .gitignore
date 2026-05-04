@@ -53,4 +53,4 @@ Project.txt
 Project1.txt
 sample_data.py
 test.ipynb
-models
+models/*.pkl
